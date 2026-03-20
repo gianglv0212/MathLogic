@@ -22,8 +22,9 @@ const queryClient = new QueryClient();
 
 function RootLayoutNav() {
   return (
-    <Stack screenOptions={{ headerBackTitle: "Back" }}>
+    <Stack screenOptions={{ headerBackTitle: "Back", animation: "fade" }}>
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen name="age-select" options={{ headerShown: false }} />
       <Stack.Screen name="quiz/[category]" options={{ headerShown: false }} />
     </Stack>
   );

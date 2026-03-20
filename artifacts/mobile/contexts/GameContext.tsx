@@ -7,7 +7,6 @@ import React, {
   useState,
 } from "react";
 
-export type Difficulty = "easy" | "medium" | "hard";
 export type Category = "addition" | "subtraction" | "multiplication" | "logic" | "patterns";
 
 export interface GameStats {
@@ -22,8 +21,8 @@ export interface GameStats {
 
 interface GameContextType {
   stats: GameStats;
-  difficulty: Difficulty;
-  setDifficulty: (d: Difficulty) => void;
+  age: number | null;
+  setAge: (age: number) => Promise<void>;
   recordAnswer: (correct: boolean, category: Category) => void;
   resetStats: () => void;
   isLoading: boolean;
@@ -42,22 +41,22 @@ const defaultStats: GameStats = {
 const GameContext = createContext<GameContextType | undefined>(undefined);
 
 const STORAGE_KEY = "@mathkids:stats";
-const DIFFICULTY_KEY = "@mathkids:difficulty";
+const AGE_KEY = "@mathkids:age";
 
 export function GameProvider({ children }: { children: React.ReactNode }) {
   const [stats, setStats] = useState<GameStats>(defaultStats);
-  const [difficulty, setDifficultyState] = useState<Difficulty>("easy");
+  const [age, setAgeState] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const load = async () => {
       try {
-        const [savedStats, savedDiff] = await Promise.all([
+        const [savedStats, savedAge] = await Promise.all([
           AsyncStorage.getItem(STORAGE_KEY),
-          AsyncStorage.getItem(DIFFICULTY_KEY),
+          AsyncStorage.getItem(AGE_KEY),
         ]);
         if (savedStats) setStats(JSON.parse(savedStats));
-        if (savedDiff) setDifficultyState(savedDiff as Difficulty);
+        if (savedAge) setAgeState(Number(savedAge));
       } catch {
       } finally {
         setIsLoading(false);
@@ -72,10 +71,10 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     } catch {}
   }, []);
 
-  const setDifficulty = useCallback(async (d: Difficulty) => {
-    setDifficultyState(d);
+  const setAge = useCallback(async (newAge: number) => {
+    setAgeState(newAge);
     try {
-      await AsyncStorage.setItem(DIFFICULTY_KEY, d);
+      await AsyncStorage.setItem(AGE_KEY, String(newAge));
     } catch {}
   }, []);
 
@@ -90,9 +89,10 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
           streakCurrent: newStreak,
           streakBest: Math.max(prev.streakBest, newStreak),
           stars: correct ? prev.stars + 1 : prev.stars,
-          categoriesCompleted: correct && !prev.categoriesCompleted.includes(category)
-            ? [...prev.categoriesCompleted, category]
-            : prev.categoriesCompleted,
+          categoriesCompleted:
+            correct && !prev.categoriesCompleted.includes(category)
+              ? [...prev.categoriesCompleted, category]
+              : prev.categoriesCompleted,
         };
         saveStats(newStats);
         return newStats;
@@ -110,7 +110,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <GameContext.Provider
-      value={{ stats, difficulty, setDifficulty, recordAnswer, resetStats, isLoading }}
+      value={{ stats, age, setAge, recordAnswer, resetStats, isLoading }}
     >
       {children}
     </GameContext.Provider>

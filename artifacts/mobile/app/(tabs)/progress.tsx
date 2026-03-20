@@ -16,6 +16,7 @@ import { StatCard } from "@/components/StatCard";
 import { StarRating } from "@/components/StarRating";
 import Colors from "@/constants/colors";
 import { useGame } from "@/contexts/GameContext";
+import { AGE_STYLES_MAP, AGE_CONFIG } from "@/utils/ageStyles";
 
 const categoryLabels: Record<string, string> = {
   addition: "Addition",
@@ -35,7 +36,10 @@ const categoryColors: Record<string, string> = {
 
 export default function ProgressScreen() {
   const insets = useSafeAreaInsets();
-  const { stats, resetStats } = useGame();
+  const { stats, age, resetStats } = useGame();
+  const effectiveAge = age ?? 7;
+  const ageStyle = AGE_STYLES_MAP[effectiveAge] ?? { emoji: "🌟", accent: Colors.light.tint, bg: "#EEF2FF" };
+  const ageCfg = AGE_CONFIG[effectiveAge];
   const isWeb = Platform.OS === "web";
   const topPad = isWeb ? Math.max(insets.top + 67, 80) : insets.top;
 
@@ -74,6 +78,12 @@ export default function ProgressScreen() {
         end={{ x: 1, y: 1 }}
         style={styles.header}
       >
+        <View style={styles.ageRow}>
+          <Text style={styles.ageEmoji}>{ageStyle.emoji}</Text>
+          <View style={styles.agePillHeader}>
+            <Text style={styles.agePillLabel}>Age {effectiveAge}</Text>
+          </View>
+        </View>
         <Text style={styles.headerTitle}>My Progress</Text>
         <View style={styles.starRow}>
           <StarRating count={starRating} max={3} size={28} color="#FBBF24" />
@@ -182,6 +192,27 @@ const styles = StyleSheet.create({
     padding: 20,
     marginBottom: 8,
     alignItems: "center",
+  },
+  ageRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 8,
+  },
+  ageEmoji: {
+    fontSize: 24,
+  },
+  agePillHeader: {
+    backgroundColor: "rgba(255,255,255,0.25)",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 100,
+  },
+  agePillLabel: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#fff",
+    fontFamily: "Inter_600SemiBold",
   },
   headerTitle: {
     fontSize: 22,

@@ -19,6 +19,7 @@ import { ResultModal } from "@/components/ResultModal";
 import Colors from "@/constants/colors";
 import { Category, useGame } from "@/contexts/GameContext";
 import { Question, generateQuestion } from "@/utils/questionGenerator";
+import { AGE_STYLES_MAP } from "@/utils/ageStyles";
 
 const TOTAL_QUESTIONS = 10;
 
@@ -27,7 +28,7 @@ type OptionState = "default" | "selected" | "correct" | "incorrect";
 export default function QuizScreen() {
   const { category } = useLocalSearchParams<{ category: string }>();
   const insets = useSafeAreaInsets();
-  const { difficulty, stats, recordAnswer } = useGame();
+  const { age, stats, recordAnswer } = useGame();
   const isWeb = Platform.OS === "web";
   const topPad = isWeb ? Math.max(insets.top + 67, 20) : insets.top + 12;
 
@@ -42,10 +43,13 @@ export default function QuizScreen() {
 
   const slideAnim = useRef(new Animated.Value(0)).current;
 
+  const effectiveAge = age ?? 7;
+  const ageStyle = AGE_STYLES_MAP[effectiveAge] ?? { emoji: "🌟", accent: Colors.light.tint, bg: "#EEF2FF" };
+
   const generateQuestions = useCallback(() => {
     const qs: Question[] = [];
     for (let i = 0; i < TOTAL_QUESTIONS; i++) {
-      qs.push(generateQuestion(category as Category, difficulty));
+      qs.push(generateQuestion(category as Category, effectiveAge));
     }
     setQuestions(qs);
     setCurrentIndex(0);
@@ -55,7 +59,7 @@ export default function QuizScreen() {
     setShowResult(false);
     setSessionCorrect(0);
     setFinished(false);
-  }, [category, difficulty]);
+  }, [category, effectiveAge]);
 
   useEffect(() => {
     generateQuestions();
@@ -123,7 +127,7 @@ export default function QuizScreen() {
   if (!question && !finished) {
     return (
       <View style={styles.loading}>
-        <Text style={styles.loadingText}>Loading...</Text>
+        <Text style={styles.loadingText}>Loading questions...</Text>
       </View>
     );
   }
@@ -134,8 +138,8 @@ export default function QuizScreen() {
     return (
       <View style={[styles.finishScreen, { paddingTop: topPad }]}>
         <View style={styles.finishCard}>
-          <View style={styles.trophyCircle}>
-            <Ionicons name="trophy" size={56} color="#F59E0B" />
+          <View style={[styles.trophyCircle, { backgroundColor: ageStyle.bg }]}>
+            <Text style={{ fontSize: 48 }}>🏆</Text>
           </View>
           <Text style={styles.finishTitle}>Quiz Complete!</Text>
           <Text style={styles.finishScore}>
@@ -162,7 +166,10 @@ export default function QuizScreen() {
           </Text>
           <Pressable
             onPress={generateQuestions}
-            style={({ pressed }) => [styles.playAgainBtn, { opacity: pressed ? 0.9 : 1 }]}
+            style={({ pressed }) => [
+              styles.playAgainBtn,
+              { backgroundColor: ageStyle.accent, opacity: pressed ? 0.9 : 1 },
+            ]}
           >
             <Ionicons name="refresh" size={18} color="#fff" />
             <Text style={styles.playAgainText}>Play Again</Text>
@@ -185,13 +192,21 @@ export default function QuizScreen() {
           <Ionicons name="arrow-back" size={22} color={Colors.light.text} />
         </Pressable>
         <View style={styles.progressContainer}>
-          <ProgressBar progress={(currentIndex) / TOTAL_QUESTIONS} />
+          <ProgressBar
+            progress={currentIndex / TOTAL_QUESTIONS}
+            color={ageStyle.accent}
+          />
         </View>
-        <View style={styles.counterChip}>
+        <View style={[styles.counterChip, { backgroundColor: ageStyle.accent }]}>
           <Text style={styles.counterText}>
             {currentIndex + 1}/{TOTAL_QUESTIONS}
           </Text>
         </View>
+      </View>
+
+      <View style={styles.agePill}>
+        <Text style={styles.agePillEmoji}>{ageStyle.emoji}</Text>
+        <Text style={[styles.agePillText, { color: ageStyle.accent }]}>Age {effectiveAge}</Text>
       </View>
 
       <ScrollView
@@ -200,7 +215,7 @@ export default function QuizScreen() {
         showsVerticalScrollIndicator={false}
       >
         <Animated.View style={{ transform: [{ translateY: slideAnim }] }}>
-          <View style={styles.questionCard}>
+          <View style={[styles.questionCard, { borderColor: ageStyle.accent + "33" }]}>
             <Text style={styles.questionEmoji}>{question.emoji}</Text>
             <Text style={styles.questionText}>{question.question}</Text>
           </View>
@@ -211,7 +226,10 @@ export default function QuizScreen() {
             <AnswerOption
               key={option}
               label={option}
-              state={optionStates[option] ?? (selectedOption === option ? "selected" : "default")}
+              state={
+                optionStates[option] ??
+                (selectedOption === option ? "selected" : "default")
+              }
               onPress={() => handleOptionPress(option)}
               disabled={answered}
             />
@@ -250,7 +268,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 16,
-    paddingBottom: 12,
+    paddingBottom: 8,
     gap: 12,
   },
   backBtn: {
@@ -267,7 +285,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   counterChip: {
-    backgroundColor: Colors.light.tint,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 100,
@@ -275,6 +292,28 @@ const styles = StyleSheet.create({
   counterText: {
     color: "#fff",
     fontSize: 13,
+    fontWeight: "600",
+    fontFamily: "Inter_600SemiBold",
+  },
+  agePill: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    marginHorizontal: 16,
+    marginBottom: 8,
+    gap: 5,
+    backgroundColor: Colors.light.card,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 100,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+  },
+  agePillEmoji: {
+    fontSize: 14,
+  },
+  agePillText: {
+    fontSize: 12,
     fontWeight: "600",
     fontFamily: "Inter_600SemiBold",
   },
@@ -289,10 +328,9 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.light.card,
     borderRadius: 20,
     padding: 24,
-    marginBottom: 24,
+    marginBottom: 20,
     alignItems: "center",
-    borderWidth: 1,
-    borderColor: Colors.light.border,
+    borderWidth: 1.5,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
@@ -346,7 +384,6 @@ const styles = StyleSheet.create({
     width: 96,
     height: 96,
     borderRadius: 48,
-    backgroundColor: "#FEF3C7",
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 16,
@@ -387,7 +424,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    backgroundColor: Colors.light.tint,
     paddingVertical: 14,
     paddingHorizontal: 32,
     borderRadius: 14,

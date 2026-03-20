@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { router } from "expo-router";
-import React from "react";
+import { router, useFocusEffect } from "expo-router";
+import React, { useCallback } from "react";
 import {
   Platform,
   Pressable,
@@ -13,12 +13,11 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { CategoryCard } from "@/components/CategoryCard";
-import { StarRating } from "@/components/StarRating";
 import Colors from "@/constants/colors";
 import { Category, useGame } from "@/contexts/GameContext";
-import { Difficulty } from "@/contexts/GameContext";
+import { AGE_CONFIG, AGE_STYLES_MAP } from "@/utils/ageStyles";
 
-const categories: Array<{
+const ALL_CATEGORIES: Array<{
   category: Category;
   label: string;
   description: string;
@@ -68,17 +67,27 @@ const categories: Array<{
   },
 ];
 
-const difficulties: { key: Difficulty; label: string; color: string }[] = [
-  { key: "easy", label: "Easy", color: Colors.light.correct },
-  { key: "medium", label: "Medium", color: Colors.light.warning },
-  { key: "hard", label: "Hard", color: Colors.light.incorrect },
-];
-
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
-  const { stats, difficulty, setDifficulty } = useGame();
+  const { stats, age, isLoading } = useGame();
   const isWeb = Platform.OS === "web";
   const topPad = isWeb ? Math.max(insets.top + 67, 80) : insets.top;
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!isLoading && age === null) {
+        router.replace("/age-select");
+      }
+    }, [age, isLoading])
+  );
+
+  if (isLoading || age === null) return null;
+
+  const ageStyle = AGE_STYLES_MAP[age] ?? { emoji: "🌟", accent: Colors.light.tint };
+  const cfg = AGE_CONFIG[age];
+  const availableCategories = ALL_CATEGORIES.filter((c) =>
+    cfg.availableCategories.includes(c.category)
+  );
 
   const accuracy =
     stats.totalAttempted > 0
@@ -87,6 +96,10 @@ export default function HomeScreen() {
 
   const handleCategory = (category: Category) => {
     router.push({ pathname: "/quiz/[category]", params: { category } });
+  };
+
+  const handleChangeAge = () => {
+    router.push("/age-select");
   };
 
   return (
@@ -102,12 +115,12 @@ export default function HomeScreen() {
         style={styles.header}
       >
         <View style={styles.headerTop}>
-          <View>
-            <Text style={styles.greeting}>Hello, Math Star!</Text>
-            <Text style={styles.subtitle}>Ready for a challenge?</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.greeting}>Hello, Math Star! {ageStyle.emoji}</Text>
+            <Text style={styles.subtitle}>{cfg.description}</Text>
           </View>
           <View style={styles.starsContainer}>
-            <Ionicons name="star" size={18} color="#F59E0B" />
+            <Ionicons name="star" size={16} color="#F59E0B" />
             <Text style={styles.starsCount}>{stats.stars}</Text>
           </View>
         </View>
@@ -124,45 +137,35 @@ export default function HomeScreen() {
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
-            <Ionicons name="flame" size={18} color="#F59E0B" />
+            <Ionicons name="flame" size={16} color="#F59E0B" />
             <Text style={styles.statValue}>{stats.streakCurrent}</Text>
             <Text style={styles.statLabel}>Streak</Text>
           </View>
         </View>
       </LinearGradient>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Difficulty</Text>
-        <View style={styles.difficultyRow}>
-          {difficulties.map((d) => (
-            <Pressable
-              key={d.key}
-              onPress={() => setDifficulty(d.key)}
-              style={({ pressed }) => [
-                styles.diffBtn,
-                difficulty === d.key && {
-                  backgroundColor: d.color,
-                  borderColor: d.color,
-                },
-                { opacity: pressed ? 0.85 : 1 },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.diffBtnText,
-                  difficulty === d.key && styles.diffBtnTextActive,
-                ]}
-              >
-                {d.label}
-              </Text>
-            </Pressable>
-          ))}
+      <View style={styles.ageBanner}>
+        <View style={styles.ageBannerLeft}>
+          <View style={[styles.ageBadge, { backgroundColor: ageStyle.bg }]}>
+            <Text style={styles.ageBadgeEmoji}>{ageStyle.emoji}</Text>
+          </View>
+          <View>
+            <Text style={styles.ageBannerLabel}>Playing as</Text>
+            <Text style={styles.ageBannerAge}>Age {age}</Text>
+          </View>
         </View>
+        <Pressable
+          onPress={handleChangeAge}
+          style={({ pressed }) => [styles.changeAgeBtn, { opacity: pressed ? 0.7 : 1 }]}
+        >
+          <Ionicons name="pencil" size={14} color={Colors.light.tint} />
+          <Text style={styles.changeAgeText}>Change</Text>
+        </Pressable>
       </View>
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Choose a Topic</Text>
-        {categories.map((cat) => (
+        {availableCategories.map((cat) => (
           <CategoryCard
             key={cat.category}
             {...cat}
@@ -172,7 +175,7 @@ export default function HomeScreen() {
         ))}
       </View>
 
-      <View style={[styles.bottomPad, { height: isWeb ? 120 : 100 }]} />
+      <View style={{ height: isWeb ? 120 : 100 }} />
     </ScrollView>
   );
 }
@@ -197,18 +200,20 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "flex-start",
     marginBottom: 16,
+    gap: 8,
   },
   greeting: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: "700",
     color: "#fff",
     fontFamily: "Inter_700Bold",
   },
   subtitle: {
-    fontSize: 14,
+    fontSize: 13,
     color: "rgba(255,255,255,0.75)",
     fontFamily: "Inter_400Regular",
-    marginTop: 2,
+    marginTop: 3,
+    lineHeight: 18,
   },
   starsContainer: {
     flexDirection: "row",
@@ -218,11 +223,12 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 100,
     gap: 5,
+    flexShrink: 0,
   },
   starsCount: {
     color: "#fff",
     fontWeight: "700",
-    fontSize: 16,
+    fontSize: 15,
     fontFamily: "Inter_700Bold",
   },
   statsRow: {
@@ -254,6 +260,64 @@ const styles = StyleSheet.create({
     height: 32,
     backgroundColor: "rgba(255,255,255,0.25)",
   },
+  ageBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginHorizontal: 16,
+    marginTop: 12,
+    backgroundColor: Colors.light.card,
+    borderRadius: 14,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  ageBannerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  ageBadge: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  ageBadgeEmoji: {
+    fontSize: 22,
+  },
+  ageBannerLabel: {
+    fontSize: 11,
+    color: Colors.light.textSecondary,
+    fontFamily: "Inter_400Regular",
+  },
+  ageBannerAge: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: Colors.light.text,
+    fontFamily: "Inter_700Bold",
+  },
+  changeAgeBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    backgroundColor: "#EEF2FF",
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 10,
+  },
+  changeAgeText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: Colors.light.tint,
+    fontFamily: "Inter_600SemiBold",
+  },
   section: {
     paddingHorizontal: 16,
     marginTop: 20,
@@ -265,28 +329,4 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_700Bold",
     marginBottom: 12,
   },
-  difficultyRow: {
-    flexDirection: "row",
-    gap: 10,
-    marginBottom: 4,
-  },
-  diffBtn: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: Colors.light.border,
-    alignItems: "center",
-    backgroundColor: Colors.light.card,
-  },
-  diffBtnText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: Colors.light.textSecondary,
-    fontFamily: "Inter_600SemiBold",
-  },
-  diffBtnTextActive: {
-    color: "#fff",
-  },
-  bottomPad: {},
 });
